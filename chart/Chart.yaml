@@ -1,0 +1,8 @@
+apiVersion: v2
+name: cert-manager-porkbun-webhook
+description: Allow cert-manager to solve DNS challenges using Porkbun DNS
+
+type: application
+
+version: 0.0.0-template
+appVersion: 0.0.0-template
