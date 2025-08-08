@@ -46,10 +46,12 @@ func (e *PorkbunSolver) Present(ch *acme.ChallengeRequest) error {
     if err != nil { return errors.Wrap(err, "initialization error") }
 
     client := cfg.Client
-    zone := strings.TrimSuffix(ch.ResolvedZone, ".")
-    fqdn := strings.TrimSuffix(ch.ResolvedFQDN, ".")
+    ctx := context.Background()
 
-    records, err := client.RetrieveRecords(context.Background(), zone)
+    zone := strings.TrimSuffix(ch.ResolvedZone, ".")   // e.g. "hraedon.com"
+    fqdn := strings.TrimSuffix(ch.ResolvedFQDN, ".")   // e.g. "_acme-challenge.portainer.hraedon.com"
+
+    records, err := client.RetrieveRecords(ctx, zone)
     if err != nil { return errors.Wrap(err, "retrieve records error") }
 
     for _, r := range records {
@@ -59,8 +61,10 @@ func (e *PorkbunSolver) Present(ch *acme.ChallengeRequest) error {
         }
     }
 
-    id, err := client.CreateTXT(context.Background(), zone, fqdn, ch.Key, "60")
+    // Create TXT record with full name (matches what you tested by hand)
+    id, err := client.CreateTXT(ctx, zone, fqdn, ch.Key, "60")
     if err != nil { return errors.Wrap(err, "create record error") }
+
     slogger.Infof("Created record %s", id)
     return nil
 }
@@ -73,15 +77,17 @@ func (e *PorkbunSolver) CleanUp(ch *acme.ChallengeRequest) error {
     if err != nil { return errors.Wrap(err, "initialization error") }
 
     client := cfg.Client
+    ctx := context.Background()
+
     zone := strings.TrimSuffix(ch.ResolvedZone, ".")
     fqdn := strings.TrimSuffix(ch.ResolvedFQDN, ".")
 
-    records, err := client.RetrieveRecords(context.Background(), zone)
+    records, err := client.RetrieveRecords(ctx, zone)
     if err != nil { return errors.Wrap(err, "retrieve records error") }
 
     for _, r := range records {
         if r.Type == "TXT" && r.Name == fqdn && r.Content == ch.Key {
-            if err := client.DeleteRecord(context.Background(), zone, r.ID); err != nil {
+            if err := client.DeleteRecord(ctx, zone, r.ID); err != nil {
                 return errors.Wrap(err, "delete record error")
             }
             slogger.Infof("Deleted record %s", r.ID)
