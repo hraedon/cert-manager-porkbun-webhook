@@ -1,9 +1,9 @@
-[![Build](https://github.com/lost-woods/cert-manager-porkbun-webhook/actions/workflows/publish.yml/badge.svg)](https://github.com/lost-woods/cert-manager-porkbun-webhook/actions/workflows/publish.yml)
+[![Build](https://github.com/hraedon/cert-manager-porkbun-webhook/actions/workflows/publish.yml/badge.svg)](https://github.com/hraedon/cert-manager-porkbun-webhook/actions/workflows/publish.yml)
 
 # ACME webhook for porkbun DNS API
 Usage:
 ```bash
-helm install my-release oci://ghcr.io/lost-woods/charts/cert-manager-porkbun-webhook
+helm install my-release oci://ghcr.io/hraedon/charts/cert-manager-porkbun-webhook
 ```
 
 To test:
@@ -50,5 +50,6 @@ stringData:
 ```
 
 # Credits
-This is based on the projects [mdonoughe/porkbun-webhook](https://github.com/mdonoughe/porkbun-webhook) and [cert-manager/webhook-example](https://github.com/cert-manager/webhook-example)
+Forked from, and based on, [lost-woods/cert-manager-porkbun-webhook](github.com/lost-woods/cert-manager-porkbun-webhook)
+the forked repo is based on the projects [mdonoughe/porkbun-webhook](https://github.com/mdonoughe/porkbun-webhook) and [cert-manager/webhook-example](https://github.com/cert-manager/webhook-example)
 Additional credits to project [nblxa/cert-manager-webhook-google-domains](https://github.com/nblxa/cert-manager-webhook-google-domains) for various fixes, updates and automation.

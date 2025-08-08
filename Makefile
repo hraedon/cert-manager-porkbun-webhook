@@ -11,7 +11,7 @@ export TEST_ASSET_KUBE_APISERVER=_test/kubebuilder/kube-apiserver
 export TEST_ASSET_KUBECTL=_test/kubebuilder/kubectl
 
 REGISTRY = ghcr.io
-IMAGE_NAME = lost-woods/cert-manager-porkbun-webhook
+IMAGE_NAME = hraedon/cert-manager-porkbun-webhook
 IMAGE_TAG  = 1.0.3
 
 
