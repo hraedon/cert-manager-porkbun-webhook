@@ -10,7 +10,7 @@ import (
 	"github.com/cert-manager/cert-manager/pkg/acme/webhook"
 	acme "github.com/cert-manager/cert-manager/pkg/acme/webhook/apis/acme/v1alpha1"
 	//"github.com/nrdcg/porkbun"
-	"cert-manager-porkbun-webhook/internal/pbclient"
+	pbclient "github.com/hraedon/cert-manager-porkbun-webhook/internal/pbclient"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
