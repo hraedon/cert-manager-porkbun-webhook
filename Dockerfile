@@ -1,27 +1,29 @@
-# Build Dependencies ---------------------------
-FROM golang:1.19-alpine AS build_deps
-
+# ---------- Build deps ----------
+FROM golang:1.19-alpine AS deps
 RUN apk add --no-cache git
-
 WORKDIR /workspace
-COPY go.mod .
-COPY go.sum .
-
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Build the app --------------------------------
-FROM build_deps AS build
+# ---------- Build ----------
+FROM deps AS build
+# Build for the requested target (set by buildx)
+ARG TARGETOS
+ARG TARGETARCH
+ENV CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH}
 
 COPY . .
-RUN CGO_ENABLED=0 go build -o webhook -ldflags '-w -extldflags "-static"' .
+# smaller, reproducible binary
+RUN go build -trimpath -buildvcs=false \
+    -ldflags='-s -w -extldflags "-static"' \
+    -o /out/webhook .
 
-# Package the image ----------------------------
-FROM alpine:3.17.3
-
-RUN apk add --no-cache ca-certificates
-
-COPY --from=build /workspace/webhook /usr/local/bin/webhook
-RUN apk add libcap && setcap 'cap_net_bind_service=+ep' /usr/local/bin/webhook
+# ---------- Runtime ----------
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates libcap
+COPY --from=build /out/webhook /usr/local/bin/webhook
+# allow binding to :443 as non-root
+RUN setcap 'cap_net_bind_service=+ep' /usr/local/bin/webhook
 
 USER 1001
-ENTRYPOINT ["webhook"]
+ENTRYPOINT ["/usr/local/bin/webhook"]
