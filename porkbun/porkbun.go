@@ -9,7 +9,8 @@ import (
 
 	"github.com/cert-manager/cert-manager/pkg/acme/webhook"
 	acme "github.com/cert-manager/cert-manager/pkg/acme/webhook/apis/acme/v1alpha1"
-	"github.com/nrdcg/porkbun"
+	//"github.com/nrdcg/porkbun"
+	"cert-manager-porkbun-webhook/internal/pbclient"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	extapi "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -35,85 +36,62 @@ type PorkbunDNSProviderConfig struct {
 }
 
 type Config struct {
-	Client porkbun.Client
+	Client *pbclient.Client
 }
 
 func (e *PorkbunSolver) Present(ch *acme.ChallengeRequest) error {
-	slogger := zapLogger.Sugar()
-	slogger.Infof("Handling present request for %q %q", ch.ResolvedFQDN, ch.Key)
+    slogger := zapLogger.Sugar()
+    slogger.Infof("Handling present request for %q %q", ch.ResolvedFQDN, ch.Key)
 
-	config, err := clientConfig(e, ch)
-	if err != nil {
-		return errors.Wrap(err, "initialization error")
-	}
+    cfg, err := clientConfig(e, ch)
+    if err != nil { return errors.Wrap(err, "initialization error") }
 
-	client := config.Client
-	domain := strings.TrimSuffix(ch.ResolvedZone, ".")
-	entity := strings.TrimSuffix(ch.ResolvedFQDN, "."+ch.ResolvedZone)
-	name := strings.TrimSuffix(ch.ResolvedFQDN, ".")
-	records, err := client.RetrieveRecords(context.Background(), domain)
-	if err != nil {
-		return errors.Wrap(err, "retrieve records error")
-	}
+    client := cfg.Client
+    zone := strings.TrimSuffix(ch.ResolvedZone, ".")
+    fqdn := strings.TrimSuffix(ch.ResolvedFQDN, ".")
 
-	for _, record := range records {
-		if record.Type == "TXT" && record.Name == name && record.Content == ch.Key {
-			slogger.Infof("Record %s is already present", record.ID)
-			return nil
-		}
-	}
+    records, err := client.RetrieveRecords(context.Background(), zone)
+    if err != nil { return errors.Wrap(err, "retrieve records error") }
 
-	id, err := client.CreateRecord(context.Background(), domain, porkbun.Record{
-		Name:    entity,
-		Type:    "TXT",
-		Content: ch.Key,
-		TTL:     "60",
-	})
-	if err != nil {
-		return errors.Wrap(err, "create record error")
-	}
+    for _, r := range records {
+        if r.Type == "TXT" && r.Name == fqdn && r.Content == ch.Key {
+            slogger.Infof("Record %s already present", r.ID)
+            return nil
+        }
+    }
 
-	slogger.Infof("Created record %v", id)
-	return nil
+    id, err := client.CreateTXT(context.Background(), zone, fqdn, ch.Key, "60")
+    if err != nil { return errors.Wrap(err, "create record error") }
+    slogger.Infof("Created record %s", id)
+    return nil
 }
 
 func (e *PorkbunSolver) CleanUp(ch *acme.ChallengeRequest) error {
-	slogger := zapLogger.Sugar()
-	slogger.Infof("Handling cleanup request for %q %q", ch.ResolvedFQDN, ch.Key)
+    slogger := zapLogger.Sugar()
+    slogger.Infof("Handling cleanup request for %q %q", ch.ResolvedFQDN, ch.Key)
 
-	config, err := clientConfig(e, ch)
-	if err != nil {
-		return errors.Wrap(err, "initialization error")
-	}
+    cfg, err := clientConfig(e, ch)
+    if err != nil { return errors.Wrap(err, "initialization error") }
 
-	client := config.Client
-	domain := strings.TrimSuffix(ch.ResolvedZone, ".")
-	name := strings.TrimSuffix(ch.ResolvedFQDN, ".")
-	records, err := client.RetrieveRecords(context.Background(), domain)
-	if err != nil {
-		return errors.Wrap(err, "retrieve records error")
-	}
+    client := cfg.Client
+    zone := strings.TrimSuffix(ch.ResolvedZone, ".")
+    fqdn := strings.TrimSuffix(ch.ResolvedFQDN, ".")
 
-	for _, record := range records {
-		if record.Type == "TXT" && record.Name == name && record.Content == ch.Key {
-			id, err := strconv.ParseInt(record.ID, 10, 32)
-			if err != nil {
-				return errors.Wrap(err, "found TXT record, but it's ID is malformed")
-			}
+    records, err := client.RetrieveRecords(context.Background(), zone)
+    if err != nil { return errors.Wrap(err, "retrieve records error") }
 
-			record.Content = ch.Key
-			err = client.DeleteRecord(context.Background(), domain, int(id))
-			if err != nil {
-				return errors.Wrap(err, "delete record error")
-			}
+    for _, r := range records {
+        if r.Type == "TXT" && r.Name == fqdn && r.Content == ch.Key {
+            if err := client.DeleteRecord(context.Background(), zone, r.ID); err != nil {
+                return errors.Wrap(err, "delete record error")
+            }
+            slogger.Infof("Deleted record %s", r.ID)
+            return nil
+        }
+    }
 
-			slogger.Infof("Deleted record %v", id)
-			return nil
-		}
-	}
-
-	slogger.Info("No matching record to delete")
-	return nil
+    slogger.Info("No matching record to delete")
+    return nil
 }
 
 func (e *PorkbunSolver) Initialize(kubeClientConfig *rest.Config, stopCh <-chan struct{}) error {
@@ -184,6 +162,6 @@ func clientConfig(c *PorkbunSolver, ch *acme.ChallengeRequest) (Config, error) {
 		return config, errors.Wrap(err, fmt.Sprintf("unable to get secret-key from secret `%s/%s`; %v", secretName, ch.ResourceNamespace, err))
 	}
 
-	config.Client = *porkbun.New(secretKey, apiKey)
+	config.Client = pbclient.New(apiKey, secretKey)
 	return config, nil
 }
